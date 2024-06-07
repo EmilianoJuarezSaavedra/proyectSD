@@ -81,9 +81,10 @@ def manejar_cliente(conjuntos_de_imagenes, carpeta_de_salida, conn, addr, conexi
             token = s1(conjuntos_de_imagenes, conn, addr, conjunto_disponible)
             if token is not None:
                 if not s2(conjuntos_de_imagenes, carpeta_de_salida, conn, addr, conjunto_disponible):
+                    print("Ocurrio un Error al momento de recibir la confirmacion de si el cliente termino")
                     break
         else: #Una vez que ya no haya Estados 'A' entonces se cierra la conexion
-            print("Se va a cerrar la conexion")
+            print(f"Se va a cerrar la conexion para '{addr}'")
             #Debido a que el cliente tiene que decodificar un JSON, tube que convertir el mensaje de si hay o no cargas en un JSON tambien
             datos = {
                 "mensaje": "No hay cargas disponibles"
@@ -91,10 +92,10 @@ def manejar_cliente(conjuntos_de_imagenes, carpeta_de_salida, conn, addr, conexi
             mensaje_json = json.dumps(datos)
             conn.send(mensaje_json.encode('utf-8')) #Enviamos al cliente el mensaje de que ya no hay cargas
             break
-    print("Se salio del while de las conexiones")
+    print("Se salio del Circuit Breaker")
     conn.close()
     conexiones_activas.remove(conn)
-    print("Se va a meter al if a revisar si todos los conjuntos tienen estados 'D'")
+    print("Ahora se revisara si no hay conexiones ni conjuntos disponibles")
     #Puramente DEBUG
     #print(f"Las conexiones activas son: '{conexiones_activas}'.")
     #print(f"Las conexiones activas son: '{conexiones_activas}', y los valores dentro del diccionario son: '{conjunto_disponible.values()}'")
@@ -116,8 +117,7 @@ def manejar_cliente(conjuntos_de_imagenes, carpeta_de_salida, conn, addr, conexi
 def s0(conjuntos_de_imagenes, conn, addr):
     print(f"S0: Buscando nodos disponibles para {addr}")
     for id_conjunto, info_conjunto in conjuntos_de_imagenes.items():
-        #if info_conjunto['Estado'] == 'A': #Forma predeterminada
-        if info_conjunto['Estado'] != 'C': #Forma checando si ya todos los Batch estan completos
+        if info_conjunto['Estado'] == 'A':
             return id_conjunto
     print("No hay nodos disponibles.")
     return None
@@ -162,20 +162,23 @@ def s2(conjuntos_de_imagenes, carpeta_de_salida, conn, addr, id_conjunto):
     conn.send(mensaje_json.encode('utf-8'))
     print(f"Se enviaron los datos al cliente: '{datos}'")
 
-    termino_el_cliente = bool(conn.recv(1024).decode('utf-8')) #Bandera que recibe si el cliente logro renderizar su parte del video
-    if termino_el_cliente == True:
-        conjuntos_de_imagenes[id_conjunto]['Estado'] = 'C'
-        print(f"Video recibido y guardado como: {nombre_video}")
-        return True
-    else:
-        print(f"El video no fue recibido")
-        #Debido a que el cliente tiene que decodificar un JSON, tube que convertir el mensaje de si hay o no cargas en un JSON tambien
-        datos = {
-            "mensaje": "Error"
-        }
-        mensaje_json = json.dumps(datos)
-        conn.send(mensaje_json.encode('utf-8')) #Enviamos al cliente el mensaje de que ocurrio un error
-        return False
+    conn.settimeout(600)  # Establece un timeout de 600 segundos (10 minutos)
+    try:
+        termino_el_cliente = bool(conn.recv(1024).decode('utf-8'))
+        if termino_el_cliente:
+            conjuntos_de_imagenes[id_conjunto]['Estado'] = 'C'
+            print(f"Video recibido y guardado como: {nombre_video}")
+            return True
+    except socket.timeout:
+        print("Se acabaron los 10 minutos, no se recibió confirmación del cliente.")    
+    print(f"El video no fue recibido")
+    conjuntos_de_imagenes[id_conjunto]['Estado'] = 'A'
+    datos = {
+        "mensaje": "Error"
+    }
+    mensaje_json = json.dumps(datos)
+    conn.send(mensaje_json.encode('utf-8'))  # Enviamos al cliente el mensaje de que ocurrió un error
+    return False
 
 def iniciar_servidor(carpeta_de_imagenes, carpeta_de_salida, host='localhost', puerto=5555):
     #conjuntos_de_imagenes = preparar_conjuntos_de_imagenes(carpeta_de_imagenes)
