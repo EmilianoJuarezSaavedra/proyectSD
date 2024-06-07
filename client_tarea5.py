@@ -30,11 +30,11 @@ def renderizar_parte_video():
             print("Ocurrio un error en el servidor.")
             break
         print("Hay cargas disponibles, se procedera a recibir el numero de la parte del video y el rango de imagenes.")
-        print(f"Tu parte del video es la '{numero_parte}'")
         #Usamos mejor variables en lugar del diccionario para hacerlo mas claro en el resto del codigo
         numero_parte = datos["id_conjunto"]
         inicio_rango = datos["inicio_rango"]
         final_rango = datos["final_rango"]
+        print(f"Tu parte del video es la '{numero_parte}'")
         # Seleccionar las imágenes correspondientes
         imagenes = [img for img in os.listdir(image_folder) if img.endswith(".jpg")][inicio_rango:final_rango]
 
