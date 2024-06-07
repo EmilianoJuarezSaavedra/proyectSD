@@ -177,18 +177,6 @@ def s2(conjuntos_de_imagenes, carpeta_de_salida, conn, addr, id_conjunto):
         conn.send(mensaje_json.encode('utf-8')) #Enviamos al cliente el mensaje de que ocurrio un error
         return False
 
-"""
-#QUEDA PENDIENTE A ELIMINAR, ¡¡DISCUTIRLO CON EL EQUIPO!!
-def s3(conjuntos_de_imagenes, conn, addr, id_conjunto, nombre_video):
-    print(f"S3: Enviando video a {addr}. ID de conjunto: {id_conjunto}")
-    with open(nombre_video, 'rb') as f:
-        datos_video = f.read()
-    conn.sendall(str(len(datos_video)).encode('utf-8').rjust(10))
-    conn.sendall(datos_video)
-    conjuntos_de_imagenes[id_conjunto]['Estado'] = 'D'
-    conn.close()
-"""
-
 def iniciar_servidor(carpeta_de_imagenes, carpeta_de_salida, host='localhost', puerto=5555):
     #conjuntos_de_imagenes = preparar_conjuntos_de_imagenes(carpeta_de_imagenes)
     conexiones_activas = set() #Para saber si todavia hay conexiones activas
